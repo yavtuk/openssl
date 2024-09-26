@@ -78,6 +78,7 @@ close TABLE;
 die "insane number of elements" if ($#arr != 64*16*37-1);
 
 $code.=<<___;
+.section .rodata
 .globl	ecp_nistz256_precomputed
 .type	ecp_nistz256_precomputed,%object
 .align	12
@@ -103,19 +104,38 @@ for(1..37) {
 $code.=<<___;
 .size	ecp_nistz256_precomputed,.-ecp_nistz256_precomputed
 .align	5
+.type	.Lpoly,%object
 .Lpoly:
 .quad	0xffffffffffffffff,0x00000000ffffffff,0x0000000000000000,0xffffffff00000001
+.size	.Lpoly,.-.Lpoly
+
+.type	.LRR,%object
 .LRR:	// 2^512 mod P precomputed for NIST P256 polynomial
 .quad	0x0000000000000003,0xfffffffbffffffff,0xfffffffffffffffe,0x00000004fffffffd
+.size	.LRR,.-.LRR
+
+.type	.Lone_mont,%object
 .Lone_mont:
 .quad	0x0000000000000001,0xffffffff00000000,0xffffffffffffffff,0x00000000fffffffe
+.size	.Lone_mont,.-.Lone_mont
+
+.type	.Lone,%object
 .Lone:
 .quad	1,0,0,0
+.size	.Lone,.-.Lone
+
+.type	.Lord,%object
 .Lord:
 .quad	0xf3b9cac2fc632551,0xbce6faada7179e84,0xffffffffffffffff,0xffffffff00000000
+.size	.Lord,.-.Lord
+
+.type	.LordK,%object
 .LordK:
 .quad	0xccd1c8aaee00bc4f
+.size	.LordK,.-.LordK
+
 .asciz	"ECP_NISTZ256 for ARMv8, CRYPTOGAMS by <appro\@openssl.org>"
+.previous
 
 // void	ecp_nistz256_to_mont(BN_ULONG x0[4],const BN_ULONG x1[4]);
 .globl	ecp_nistz256_to_mont
@@ -127,12 +147,16 @@ ecp_nistz256_to_mont:
 	add	x29,sp,#0
 	stp	x19,x20,[sp,#16]
 
-	ldr	$bi,.LRR		// bp[0]
+	adrp	$bi, .LRR
+	ldr	$bi, [$bi, #:lo12:.LRR]		// bp[0]
 	ldp	$a0,$a1,[$ap]
 	ldp	$a2,$a3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
-	adr	$bp,.LRR		// &bp[0]
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
+	adrp	$bp, .LRR
+	add	$bp, $bp, #:lo12:.LRR		// &bp[0]
 
 	bl	__ecp_nistz256_mul_mont
 
@@ -155,9 +179,12 @@ ecp_nistz256_from_mont:
 	mov	$bi,#1			// bp[0]
 	ldp	$a0,$a1,[$ap]
 	ldp	$a2,$a3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
-	adr	$bp,.Lone		// &bp[0]
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
+	adrp	$bp, .Lone
+	add	$bp, $bp, #:lo12:.Lone		// &bp[0]
 
 	bl	__ecp_nistz256_mul_mont
 
@@ -181,8 +208,10 @@ ecp_nistz256_mul_mont:
 	ldr	$bi,[$bp]		// bp[0]
 	ldp	$a0,$a1,[$ap]
 	ldp	$a2,$a3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	bl	__ecp_nistz256_mul_mont
 
@@ -204,8 +233,10 @@ ecp_nistz256_sqr_mont:
 
 	ldp	$a0,$a1,[$ap]
 	ldp	$a2,$a3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	bl	__ecp_nistz256_sqr_mont
 
@@ -229,8 +260,10 @@ ecp_nistz256_add:
 	ldp	$t0,$t1,[$bp]
 	ldp	$acc2,$acc3,[$ap,#16]
 	ldp	$t2,$t3,[$bp,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	bl	__ecp_nistz256_add
 
@@ -250,8 +283,10 @@ ecp_nistz256_div_by_2:
 
 	ldp	$acc0,$acc1,[$ap]
 	ldp	$acc2,$acc3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	bl	__ecp_nistz256_div_by_2
 
@@ -271,8 +306,10 @@ ecp_nistz256_mul_by_2:
 
 	ldp	$acc0,$acc1,[$ap]
 	ldp	$acc2,$acc3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 	mov	$t0,$acc0
 	mov	$t1,$acc1
 	mov	$t2,$acc2
@@ -296,8 +333,10 @@ ecp_nistz256_mul_by_3:
 
 	ldp	$acc0,$acc1,[$ap]
 	ldp	$acc2,$acc3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 	mov	$t0,$acc0
 	mov	$t1,$acc1
 	mov	$t2,$acc2
@@ -333,8 +372,10 @@ ecp_nistz256_sub:
 
 	ldp	$acc0,$acc1,[$ap]
 	ldp	$acc2,$acc3,[$ap,#16]
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	bl	__ecp_nistz256_sub_from
 
@@ -357,8 +398,10 @@ ecp_nistz256_neg:
 	mov	$acc1,xzr
 	mov	$acc2,xzr
 	mov	$acc3,xzr
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	bl	__ecp_nistz256_sub_from
 
@@ -736,9 +779,11 @@ ecp_nistz256_point_double:
 	 mov	$rp_real,$rp
 	ldp	$acc2,$acc3,[$ap,#48]
 	 mov	$ap_real,$ap
-	 ldr	$poly1,.Lpoly+8
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
 	mov	$t0,$acc0
-	 ldr	$poly3,.Lpoly+24
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 	mov	$t1,$acc1
 	 ldp	$a0,$a1,[$ap_real,#64]	// forward load for p256_sqr_mont
 	mov	$t2,$acc2
@@ -897,8 +942,10 @@ ecp_nistz256_point_add:
 	 mov	$rp_real,$rp
 	 mov	$ap_real,$ap
 	 mov	$bp_real,$bp
-	 ldr	$poly1,.Lpoly+8
-	 ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 	orr	$t0,$a0,$a1
 	orr	$t2,$a2,$a3
 	orr	$in2infty,$t0,$t2
@@ -1151,8 +1198,10 @@ ecp_nistz256_point_add_affine:
 	mov	$rp_real,$rp
 	mov	$ap_real,$ap
 	mov	$bp_real,$bp
-	ldr	$poly1,.Lpoly+8
-	ldr	$poly3,.Lpoly+24
+	adrp	$poly1, .Lpoly
+	ldr	$poly1, [$poly1, #:lo12:.Lpoly+8]
+	adrp	$poly3, .Lpoly
+	ldr	$poly3, [$poly3, #:lo12:.Lpoly+24]
 
 	ldp	$a0,$a1,[$ap,#64]	// in1_z
 	ldp	$a2,$a3,[$ap,#64+16]
@@ -1303,7 +1352,8 @@ $code.=<<___;
 	stp	$acc2,$acc3,[$rp_real,#$i+16]
 ___
 $code.=<<___	if ($i == 0);
-	adr	$bp_real,.Lone_mont-64
+	adrp	$bp_real, .Lone_mont
+	add	$bp_real, $bp_real, #:lo12:.Lone_mont-64
 ___
 }
 $code.=<<___;
@@ -1354,7 +1404,8 @@ ecp_nistz256_ord_mul_mont:
 	stp	x21,x22,[sp,#32]
 	stp	x23,x24,[sp,#48]
 
-	adr	$ordk,.Lord
+	adrp	$ordk,.Lord
+	add	$ordk, $ordk, #:lo12:.Lord
 	ldr	$bi,[$bp]		// bp[0]
 	ldp	$a0,$a1,[$ap]
 	ldp	$a2,$a3,[$ap,#16]
@@ -1497,7 +1548,8 @@ ecp_nistz256_ord_sqr_mont:
 	stp	x21,x22,[sp,#32]
 	stp	x23,x24,[sp,#48]
 
-	adr	$ordk,.Lord
+	adrp	$ordk,.Lord
+	add	$ordk, $ordk, #:lo12:.Lord
 	ldp	$a0,$a1,[$ap]
 	ldp	$a2,$a3,[$ap,#16]
 
